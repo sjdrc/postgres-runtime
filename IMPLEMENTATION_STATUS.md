@@ -10,7 +10,11 @@ manifest → package → **smoke suite → relocation test** → final manifest 
 SBOM — is implemented and has been executed end-to-end successfully for
 **linux-amd64** against **PostgreSQL 18.6** (`make dist`). CI workflows for
 verify/build/release/dependency-watch are in place and registered
-(`state: active`); the files pass `actionlint` cleanly.
+(`state: active`); the files pass `actionlint` cleanly. `versions.yaml`
+declares four platforms — `linux-amd64`, `linux-arm64`, `darwin-arm64`,
+`darwin-amd64` — and `verify.yml` now builds and fully tests **all of
+them** natively on every push/PR (matrixed the same way `release.yml`
+builds for a release), not just a single representative platform.
 
 The first two pushes to `main` produced `startup_failure` runs (0 jobs, no
 logs). The actual GitHub error, surfaced via the web UI (not visible through
@@ -31,14 +35,28 @@ single attestation over the whole collected artifact set, with
 still caps those permissions at release time — that's now isolated to a
 single job on tag pushes rather than blocking everyday CI.
 
+`config/configure.darwin` previously hard-coded `/opt/homebrew` (Apple
+Silicon's Homebrew prefix) for the lz4/zstd search paths — correct for
+`darwin-arm64` but wrong for `darwin-amd64` (Intel Homebrew uses
+`/usr/local`), a latent bug that would have surfaced silently the first
+time that platform actually built. Fixed by having `scripts/configure.sh`
+detect the prefix via `brew --prefix` at configure time instead of
+hard-coding either path.
+
+No release has been tagged yet, so nothing has been published as
+downloadable GitHub Release assets — `verify.yml` only uploads short-lived
+workflow-run artifacts (~90-day retention), not a Release. Publishing a
+Release requires pushing a `postgres-<version>-runtime.<revision>` tag to
+trigger `release.yml`.
+
 ## Milestones (plan §22)
 
 | Milestone | State | Notes |
 | --- | --- | --- |
 | 1 — one-platform proof | **Done (linux-amd64)** | Executed in a clean Linux container: fetch + pinned-SHA verify, build, stage, prune (23 MB tree, 6.1 MB archive), initdb/start/connect/stop via Unix socket only, relocation, manifest. The plan suggested darwin-arm64 first; this environment is linux-amd64, so that became the proof platform. |
 | 2 — feature proof | **Done** | `tests/sql/`: FTS+GIN, pg_trgm (similarity + indexed lookup), JSONB containment + GIN, recursive CTE (incl. cyclic), COPY both directions, FOR UPDATE SKIP LOCKED, session + xact advisory locks, LISTEN/NOTIFY (cross-session, asserted on delivery), pg_stat_statements (preloaded, stats asserted), pg_dump/pg_restore round-trip with data comparison. Multi-session contention is driven deterministically via dblink. |
-| 3 — Linux matrix | **Partially done** | linux-amd64 proven locally. linux-arm64 declared in `versions.yaml` + `build.yml` (native `ubuntu-22.04-arm` runner); needs its first CI run. Relocatable private-library handling + allowlisting implemented and verified on amd64. |
-| 4 — release supply chain | **Implemented, unexercised** | Tag-driven `release.yml` (build matrix → `verify-release-set.sh` gate → publish), per-archive SHA-256, manifest schema + validation, CycloneDX SBOM, provenance attestation via `actions/attest-build-provenance`, weekly `dependency-watch.yml` (opens an issue; never auto-releases). Needs a first tagged release to exercise. |
+| 3 — full platform matrix | **In CI, unconfirmed green** | linux-amd64 proven locally. All four platforms (`linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64`) now build+test natively on every `verify.yml` run — awaiting a fully green run across the matrix. Relocatable private-library handling + allowlisting implemented and verified on amd64; the darwin Homebrew-prefix detection was fixed before darwin-amd64 could actually exercise it. |
+| 4 — release supply chain | **Implemented, unexercised** | Tag-driven `release.yml` (build matrix → `verify-release-set.sh` gate → publish), per-archive SHA-256, manifest schema + validation, CycloneDX SBOM, provenance attestation via `actions/attest-build-provenance`, weekly `dependency-watch.yml` (opens an issue; never auto-releases). No tag has been pushed yet, so no GitHub Release exists — needs a first tagged release to exercise and to make downloadable assets available. |
 | 5 — main-app consumption | **Out of scope here** | Belongs to the main Go repo (plan §22). The integration contract is documented in README; `runtime-manifest.json` ships inside every archive. |
 
 ## Definition of Done deltas (plan §24)
@@ -77,11 +95,9 @@ Open items:
 
 ## Next steps
 
-1. Push, open a PR, and let `verify.yml` run the lint + linux-amd64
-   pipeline in CI.
-2. First green runs for linux-arm64 and darwin-arm64 via
-   `build.yml` (workflow_dispatch); fix any macOS-specific fallout in the
-   darwin link scripts (written but not yet executed on a Mac).
-3. Tag `postgres-18.6-runtime.1` to exercise the release gate, provenance,
-   and publishing.
-4. Consume the release from the main application (milestone 5, other repo).
+1. Confirm `verify.yml` goes fully green across all four platforms; fix
+   any macOS-specific fallout in the darwin link scripts (written but,
+   as of this update, not yet confirmed passing on a real Mac runner).
+2. Tag `postgres-18.6-runtime.1` to exercise the release gate, provenance,
+   and publishing — this is what actually produces downloadable assets.
+3. Consume the release from the main application (milestone 5, other repo).

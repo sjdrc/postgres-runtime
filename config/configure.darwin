@@ -1,9 +1,9 @@
 # macOS-specific configure options.
 #
-# Homebrew keg paths for lz4/zstd on Apple Silicon build hosts. These are
-# build-time search paths only: runtime linkage is rewritten to
-# @loader_path/../lib and verified to contain no Homebrew references
+# Homebrew's lz4/zstd search paths are NOT listed here: the prefix differs
+# by architecture (/opt/homebrew on Apple Silicon, /usr/local on Intel), so
+# scripts/configure.sh detects it at configure time via `brew --prefix` and
+# appends --with-libraries/--with-includes itself. These are build-time
+# search paths only: runtime linkage is rewritten to @loader_path/../lib
+# and verified to contain no Homebrew references
 # (scripts/rewrite-runtime-links-darwin.sh, verify-runtime-links-darwin.sh).
-# For a darwin-amd64 build host, /usr/local is Homebrew's prefix instead.
---with-libraries=/opt/homebrew/lib
---with-includes=/opt/homebrew/include

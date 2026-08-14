@@ -1,7 +1,7 @@
 # PR verification (plan §14): lint scripts, validate versions.yaml and the
 # manifest schema, enforce the patch policy, then run the full
-# build/package/relocation pipeline on the primary Linux target as the
-# representative build test.
+# build/package/relocation pipeline natively across every platform in
+# versions.yaml (same matrix release.yml builds from).
 name: verify
 
 on:
@@ -24,8 +24,22 @@ jobs:
       - name: Lint scripts and validate declarative inputs
         run: make lint
 
-  build-linux-amd64:
+  plan:
     needs: lint
+    runs-on: ubuntu-24.04
+    outputs:
+      platforms: ${{ steps.matrix.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        run: echo "platforms=$(scripts/print-platforms-json.sh)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.plan.outputs.platforms) }}
     uses: ./.github/workflows/build.yml
     with:
-      platform: linux-amd64
+      platform: ${{ matrix.platform }}

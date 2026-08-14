@@ -41,6 +41,14 @@ done < <(
   read_options_file "${REPO_ROOT}/config/configure.${os}"
 )
 
+# Homebrew's prefix differs by Mac architecture (/opt/homebrew on Apple
+# Silicon, /usr/local on Intel); detect it rather than hard-coding either,
+# since both darwin-arm64 and darwin-amd64 build natively in CI.
+if [[ "${os}" == darwin ]] && command -v brew >/dev/null 2>&1; then
+  brew_prefix="$(brew --prefix)"
+  opts+=("--with-libraries=${brew_prefix}/lib" "--with-includes=${brew_prefix}/include")
+fi
+
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 log "configuring with prefix ${PG_PREFIX} and options: ${opts[*]}"

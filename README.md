@@ -68,6 +68,15 @@ refuse to run as root (PostgreSQL itself does).
 Useful individual targets: `make lint`, `make smoke`, `make relocation`,
 `make clean` / `make distclean`.
 
+## CI
+
+`verify.yml` runs on every push and PR: lint, then a native build + full
+test pipeline (`make dist`, including the smoke and relocation suites) for
+**every** platform in `versions.yaml`, matrixed the same way `release.yml`
+builds for a release. There is no separate "representative platform"
+shortcut — a broken platform fails CI on the change that broke it, not
+only at release time.
+
 ## Release flow
 
 1. Update `versions.yaml` (reviewed change; the `dependency-watch` workflow
@@ -77,7 +86,8 @@ Useful individual targets: `make lint`, `make smoke`, `make relocation`,
    `postgres-18.6-runtime.1`).
 3. `release.yml` builds every platform natively, runs the full test
    pipeline per platform, verifies the artifact set as a whole
-   (`scripts/verify-release-set.sh`), attests, and publishes the release.
+   (`scripts/verify-release-set.sh`), attests the whole set once, and
+   publishes the release.
 
 Bump `runtime.revision` when packaging or build flags change without
 changing PostgreSQL; a PostgreSQL patch upgrade resets nothing else. A
