@@ -47,6 +47,18 @@ done < <(read_options_file "${REPO_ROOT}/config/bundled-libs.darwin")
 # 2. Rewrite references and rpaths on every Mach-O in the tree.
 rewrite() {
   local f="$1" dep base
+  # A dylib's own install name (LC_ID_DYLIB) is separate from what other
+  # files' LC_LOAD_DYLIB references to it say, and `-change` only rewrites
+  # the latter. PostgreSQL's own build sets this to the absolute --prefix
+  # path (e.g. libpq.*.dylib); left alone, every dependent gets correctly
+  # rewritten to @rpath/libpq.5.dylib but the library's own header still
+  # advertises the absolute path, which verify-runtime-links-darwin.sh
+  # (rightly) flags as a non-system absolute reference. `-bundle`-type
+  # loadable modules (contrib extensions) have no LC_ID_DYLIB to set, so
+  # this is harmlessly suppressed for those.
+  if [[ "${f}" == "${RUNTIME_DIR}/lib/"*.dylib ]]; then
+    install_name_tool -id "@rpath/$(basename "${f}")" "${f}" 2>/dev/null || true
+  fi
   while IFS= read -r dep; do
     [[ "${dep}" == @rpath/* || "${dep}" == @loader_path/* ]] && continue
     is_system_ref "${dep}" && continue

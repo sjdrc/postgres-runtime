@@ -49,6 +49,22 @@ workflow-run artifacts (~90-day retention), not a Release. Publishing a
 Release requires pushing a `postgres-<version>-runtime.<revision>` tag to
 trigger `release.yml`.
 
+First real matrix run on CI (commit `353e2e8`): `linux-amd64` and
+`linux-arm64` both went fully green (build, smoke suite, relocation test,
+upload). `darwin-arm64` failed `verify-runtime-links-darwin.sh` with a real
+bug: PostgreSQL's own build sets `libpq.5.dylib`'s own install name
+(`LC_ID_DYLIB`) to the absolute `--prefix` path
+(`/opt/postgres-runtime/lib/libpq.5.dylib`).
+`rewrite-runtime-links-darwin.sh` rewrote every *dependent's* reference to
+that path (via `install_name_tool -change`) but never reset the library's
+own ID — `-change` only touches `LC_LOAD_DYLIB`-family commands, not a
+library's own `LC_ID_DYLIB`. Fixed by explicitly setting
+`install_name_tool -id @rpath/<basename>` on every `.dylib` under `lib/`
+(harmlessly a no-op for `-bundle`-type contrib extension modules, which
+have no `LC_ID_DYLIB` to set). `darwin-amd64` never got a runner allocated
+before this fix landed (queued the whole time), so it's untested against
+either the old or new code as of this update.
+
 ## Milestones (plan §22)
 
 | Milestone | State | Notes |
