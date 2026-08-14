@@ -9,9 +9,14 @@ all contrib) → stage → prune → `$ORIGIN` relink → dependency inspection 
 manifest → package → **smoke suite → relocation test** → final manifest →
 SBOM — is implemented and has been executed end-to-end successfully for
 **linux-amd64** against **PostgreSQL 18.6** (`make dist`). CI workflows for
-verify/build/release/dependency-watch are in place but have not yet had a
-first run; darwin/arm64 jobs are written but not yet exercised on real
-runners.
+verify/build/release/dependency-watch are in place and registered
+(`state: active`); the files pass `actionlint` cleanly. The first push to
+`main` produced a run that ended in `startup_failure` before any job was
+scheduled (0 jobs, no logs) — this is not a workflow-syntax problem
+(confirmed via `actionlint`) and most likely reflects a repo/org-level
+Actions gate (e.g. an Actions spending limit or permissions setting) rather
+than anything in this repo's code; darwin/arm64 jobs are written but not
+yet exercised on real runners either way.
 
 ## Milestones (plan §22)
 
