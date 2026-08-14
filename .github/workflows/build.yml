@@ -31,7 +31,11 @@ permissions:
 jobs:
   build:
     name: build ${{ inputs.platform }}
-    runs-on: ${{ fromJSON('{"linux-amd64":"ubuntu-22.04","linux-arm64":"ubuntu-22.04-arm","darwin-arm64":"macos-14","darwin-amd64":"macos-13"}')[inputs.platform] }}
+    # macos-13 (Intel) was fully retired December 2025; macos-15-intel is
+    # the current GitHub-hosted x86_64 macOS label (supported until Fall
+    # 2027, when GitHub drops Intel macOS support entirely). macos-14/-15
+    # default to Apple Silicon (arm64).
+    runs-on: ${{ fromJSON('{"linux-amd64":"ubuntu-22.04","linux-arm64":"ubuntu-22.04-arm","darwin-arm64":"macos-14","darwin-amd64":"macos-15-intel"}')[inputs.platform] }}
     steps:
       - uses: actions/checkout@v4
 

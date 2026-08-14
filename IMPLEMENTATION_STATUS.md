@@ -61,9 +61,13 @@ own ID — `-change` only touches `LC_LOAD_DYLIB`-family commands, not a
 library's own `LC_ID_DYLIB`. Fixed by explicitly setting
 `install_name_tool -id @rpath/<basename>` on every `.dylib` under `lib/`
 (harmlessly a no-op for `-bundle`-type contrib extension modules, which
-have no `LC_ID_DYLIB` to set). `darwin-amd64` never got a runner allocated
-before this fix landed (queued the whole time), so it's untested against
-either the old or new code as of this update.
+have no `LC_ID_DYLIB` to set). `darwin-amd64` never got a runner allocated before this fix landed
+(queued indefinitely, `runner_id: 0`) — root cause turned out to be
+separate: `build.yml` targeted the `macos-13` runner label, which was
+fully retired in December 2025. Fixed by switching to `macos-15-intel`,
+the current GitHub-hosted x86_64 macOS label (itself scheduled for
+retirement in Fall 2027, when GitHub drops Intel macOS support). Still
+untested against the libpq fix as of this update.
 
 ## Milestones (plan §22)
 
