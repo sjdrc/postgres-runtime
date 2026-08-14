@@ -1,0 +1,78 @@
+# Reusable/manual build workflow (plan §14): one native build per platform,
+# running the complete pipeline — fetch + SHA verification, build, stage,
+# prune, private-linkage rewrite, dependency inspection, manifest, package,
+# smoke + relocation tests against the packaged artifact, SBOM — then
+# uploads the artifact set and (for releases) a provenance attestation.
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Target platform
+        required: true
+        type: choice
+        options: [linux-amd64, linux-arm64, darwin-arm64, darwin-amd64]
+      attest:
+        description: Generate provenance attestation
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+      attest:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    name: build ${{ inputs.platform }}
+    runs-on: ${{ fromJSON('{"linux-amd64":"ubuntu-22.04","linux-arm64":"ubuntu-22.04-arm","darwin-arm64":"macos-14","darwin-amd64":"macos-13"}')[inputs.platform] }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex perl pkg-config \
+            patchelf zstd jq zlib1g-dev liblz4-dev libzstd-dev
+      - name: Install build prerequisites (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install bison flex gnu-tar lz4 zstd jq
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+
+      - name: Assert native build host matches target platform
+        run: |
+          host="$(scripts/print-platform.sh)"
+          test "${host}" = "${{ inputs.platform }}" || {
+            echo "host platform ${host} != target ${{ inputs.platform }}; cross-compiled runtimes are never published" >&2
+            exit 1
+          }
+
+      - name: Build, package, and test
+        run: make dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-runtime-${{ inputs.platform }}
+          path: work/out/
+          if-no-files-found: error
+
+      - name: Attest build provenance
+        if: ${{ inputs.attest }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: work/out/*.tar.zst

@@ -1,0 +1,25 @@
+# Configure options applied on every platform, in addition to --prefix
+# (set by scripts/configure.sh). One option per line; comments and blank
+# lines are ignored. The effective list is recorded in the runtime manifest.
+
+# We install our own $ORIGIN/@loader_path-relative linkage after staging
+# (scripts/rewrite-runtime-links-*). Upstream rpath would embed the
+# absolute install prefix and break relocation.
+--disable-rpath
+
+# Explicit decision (plan §5.2): libc collations only for runtime revision 1.
+# Revisit if search/collation requirements justify bundling ICU.
+--without-icu
+
+# psql is packaged for doctor/debug/backup/scripted use, not interactive
+# daily work; skipping readline avoids bundling libreadline + terminfo
+# without losing any scripted functionality.
+--without-readline
+
+# Compression support for TOAST/WAL/pg_dump/pg_basebackup.
+# zlib is enabled by default and intentionally kept.
+--with-lz4
+--with-zstd
+
+# TLS stays off (no --with-ssl): the server is local-only (Unix socket or
+# tightly restricted loopback), per the security posture in the repo plan.

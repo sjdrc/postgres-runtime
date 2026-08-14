@@ -1,0 +1,32 @@
+# PR verification (plan §14): lint scripts, validate versions.yaml and the
+# manifest schema, enforce the patch policy, then run the full
+# build/package/relocation pipeline on the primary Linux target as the
+# representative build test.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck jq
+      - name: Lint scripts and validate declarative inputs
+        run: make lint
+
+  build-linux-amd64:
+    needs: lint
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: linux-amd64
+      attest: false

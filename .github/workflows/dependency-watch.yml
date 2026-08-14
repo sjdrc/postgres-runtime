@@ -1,0 +1,48 @@
+# Scheduled upstream release watch (plan §14): low-frequency check for new
+# PostgreSQL patch releases within the pinned major version. On discovery
+# it opens (or leaves in place) a tracking issue for a reviewed update.
+# It NEVER changes versions.yaml and never auto-releases.
+name: dependency-watch
+
+on:
+  schedule:
+    - cron: '23 6 * * 1' # Mondays 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check postgresql.org for a newer patch release
+        id: check
+        run: echo "newer=$(scripts/check-upstream.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Open tracking issue
+        if: steps.check.outputs.newer != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEWER: ${{ steps.check.outputs.newer }}
+        run: |
+          title="Upstream PostgreSQL ${NEWER} is available"
+          if gh issue list --state open --search "\"${title}\" in:title" --json number --jq 'length' | grep -qv '^0$'; then
+            echo "issue already open"
+            exit 0
+          fi
+          {
+            echo "A new PostgreSQL patch release (**${NEWER}**) is available upstream."
+            echo
+            echo "Reviewed update checklist (plan §18 — never auto-release):"
+            echo '- [ ] Update `postgres.version`, `postgres.source.filename`, `postgres.source.url_base`, and the pinned `postgres.source.sha256` in `versions.yaml`'
+            echo "- [ ] Read the upstream release notes for behavior changes"
+            echo "- [ ] Run the full platform build matrix (all smoke + relocation tests)"
+            echo "- [ ] Run main-application integration tests against the new runtime"
+            echo "- [ ] Tag postgres-${NEWER}-runtime.1 after review"
+            echo "- [ ] Bump the runtime pin in the main application"
+          } > issue-body.md
+          gh issue create --title "${title}" --body-file issue-body.md

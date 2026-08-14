@@ -1,0 +1,35 @@
+# Single source of truth for every release input.
+#
+# Parsed by scripts/lib/flatten-yaml.awk, which supports a restricted YAML
+# subset: two-space indentation, nested mappings with scalar leaves, and
+# lists of plain scalars. Keep this file inside that subset.
+
+postgres:
+  version: "18.6"
+  source:
+    filename: "postgresql-18.6.tar.bz2"
+    # Official release download location (never a GitHub mirror commit).
+    url_base: "https://ftp.postgresql.org/pub/source/v18.6"
+    # Pinned upstream SHA-256 of the source tarball. Verification fails
+    # closed on mismatch (scripts/verify-source.sh).
+    sha256: "555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f"
+
+runtime:
+  # Bump when packaging or build flags change without changing PostgreSQL
+  # itself. Runtime version is "<postgres-version>+runtime.<revision>".
+  revision: 1
+
+extensions:
+  required:
+    - pg_trgm
+    - pg_stat_statements
+    - ltree
+  optional:
+    - unaccent
+
+# Platforms CI builds and relocation-tests natively. A platform must never
+# be published from a cross-compiled, untested build.
+platforms:
+  - linux-amd64
+  - linux-arm64
+  - darwin-arm64

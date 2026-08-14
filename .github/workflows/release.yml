@@ -1,0 +1,67 @@
+# Release workflow (plan §14): on a release tag, build and fully test every
+# platform in versions.yaml, then verify the artifact set as a whole
+# (matching versions, checksums, manifests, completeness) and publish the
+# archives, checksums, manifests, and SBOMs as a GitHub release. Provenance
+# attestations are generated during the platform builds.
+name: release
+
+on:
+  push:
+    tags:
+      - 'postgres-*-runtime.*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      platforms: ${{ steps.matrix.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        run: echo "platforms=$(scripts/print-platforms-json.sh)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: ${{ fromJSON(needs.plan.outputs.platforms) }}
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: ${{ matrix.platform }}
+      attest: true
+
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: postgres-runtime-*
+          merge-multiple: true
+
+      - name: Verify release set
+        run: scripts/verify-release-set.sh artifacts "${GITHUB_REF_NAME}"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Relocatable PostgreSQL runtime artifacts."
+            echo
+            echo "Built from the official PostgreSQL source release pinned in versions.yaml"
+            echo "(SHA-256 verified). Each archive ships with a .sha256 checksum, a"
+            echo "machine-readable runtime manifest, an SBOM, and a build provenance"
+            echo "attestation (verify with: gh attestation verify <archive> -R ${GITHUB_REPOSITORY})."
+          } > notes.md
+          gh release create "${GITHUB_REF_NAME}" artifacts/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file notes.md

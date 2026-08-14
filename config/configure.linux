@@ -1,0 +1,2 @@
+# Linux-specific configure options. None currently: the common set plus
+# post-install $ORIGIN rpath rewriting covers the Linux targets.

@@ -1,0 +1,15 @@
+# Extended regexes (one per line) matched against the library name — or,
+# for entries without a "=>" in ldd output, the leading path — of every
+# dynamic dependency of every ELF file in the runtime tree. Dependencies
+# that resolve inside the runtime tree are always allowed. Anything else
+# not matched here blocks the build; extending this list is a reviewed
+# change.
+^linux-vdso\.so\.1$
+^libc\.so\.6$
+^libm\.so\.6$
+^libpthread\.so\.0$
+^libdl\.so\.2$
+^librt\.so\.1$
+^libgcc_s\.so\.1$
+^/(usr/)?lib(64)?/ld-linux-[a-z0-9_-]+\.so\.[0-9]+$
+^ld-linux-[a-z0-9_-]+\.so\.[0-9]+$

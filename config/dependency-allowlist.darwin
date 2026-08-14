@@ -1,0 +1,7 @@
+# Extended regexes (one per line) matched against every install-name
+# reference reported by `otool -L` for every Mach-O file in the runtime
+# tree. @rpath/@loader_path references must resolve inside runtime/lib and
+# are checked separately. Homebrew (/opt/homebrew, /usr/local), build
+# prefixes, and developer-machine paths are rejected by omission.
+^/usr/lib/
+^/System/Library/

@@ -1,0 +1,2 @@
+# All build state lives under work/ (see scripts/lib.sh).
+/work/

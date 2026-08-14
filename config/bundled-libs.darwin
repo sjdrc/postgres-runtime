@@ -1,0 +1,5 @@
+# Non-system dylibs copied from the build host (Homebrew kegs) into
+# runtime/lib and rewritten to @rpath install names. libz ships with macOS
+# in /usr/lib and is allowlisted as a system library instead.
+liblz4.1.dylib
+libzstd.1.dylib
