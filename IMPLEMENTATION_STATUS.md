@@ -10,13 +10,26 @@ manifest → package → **smoke suite → relocation test** → final manifest 
 SBOM — is implemented and has been executed end-to-end successfully for
 **linux-amd64** against **PostgreSQL 18.6** (`make dist`). CI workflows for
 verify/build/release/dependency-watch are in place and registered
-(`state: active`); the files pass `actionlint` cleanly. The first push to
-`main` produced a run that ended in `startup_failure` before any job was
-scheduled (0 jobs, no logs) — this is not a workflow-syntax problem
-(confirmed via `actionlint`) and most likely reflects a repo/org-level
-Actions gate (e.g. an Actions spending limit or permissions setting) rather
-than anything in this repo's code; darwin/arm64 jobs are written but not
-yet exercised on real runners either way.
+(`state: active`); the files pass `actionlint` cleanly.
+
+The first two pushes to `main` produced `startup_failure` runs (0 jobs, no
+logs). The actual GitHub error, surfaced via the web UI (not visible through
+the API/logs used to diagnose it here): `build.yml` declared
+`id-token: write` and `attestations: write` at its workflow-level
+`permissions:` block, and this repo's Actions policy caps both at `none`.
+Because `verify.yml` calls `build.yml` as a reusable workflow on every push,
+that unconditional top-level permission request failed validation
+immediately — regardless of the (now-removed) `attest` input's value, since
+GitHub validates a called workflow's declared permissions before any job
+runs, not per-step conditionals. Fixed by removing attestation from
+`build.yml` entirely and moving it into `release.yml`'s `publish` job as a
+single attestation over the whole collected artifact set, with
+`id-token: write` / `attestations: write` scoped to just that one job
+(least privilege) instead of declared workflow-wide. `verify.yml` and
+`build.yml` now request only `contents: read`. This does mean the
+`publish` job will hit the same "not allowed" error if this repo's policy
+still caps those permissions at release time — that's now isolated to a
+single job on tag pushes rather than blocking everyday CI.
 
 ## Milestones (plan §22)
 

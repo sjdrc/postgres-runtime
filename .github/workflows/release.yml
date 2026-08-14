@@ -1,19 +1,19 @@
 # Release workflow (plan §14): on a release tag, build and fully test every
 # platform in versions.yaml, then verify the artifact set as a whole
 # (matching versions, checksums, manifests, completeness) and publish the
-# archives, checksums, manifests, and SBOMs as a GitHub release. Provenance
-# attestations are generated during the platform builds.
+# archives, checksums, manifests, SBOMs, and a single provenance
+# attestation covering the whole artifact set as a GitHub release.
+#
+# Permissions are scoped per job (least privilege) rather than declared
+# once at the workflow level: only `publish` needs `contents: write` (to
+# create the release) and `id-token: write` / `attestations: write` (to
+# attest). `plan` and `build` get the default read-only token.
 name: release
 
 on:
   push:
     tags:
       - 'postgres-*-runtime.*'
-
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
 
 jobs:
   plan:
@@ -34,11 +34,14 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       platform: ${{ matrix.platform }}
-      attest: true
 
   publish:
     needs: [plan, build]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -49,6 +52,11 @@ jobs:
 
       - name: Verify release set
         run: scripts/verify-release-set.sh artifacts "${GITHUB_REF_NAME}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifacts/*.tar.zst
 
       - name: Publish GitHub release
         env:

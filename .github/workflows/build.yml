@@ -2,7 +2,13 @@
 # running the complete pipeline — fetch + SHA verification, build, stage,
 # prune, private-linkage rewrite, dependency inspection, manifest, package,
 # smoke + relocation tests against the packaged artifact, SBOM — then
-# uploads the artifact set and (for releases) a provenance attestation.
+# uploads the artifact set. Provenance attestation is generated once, over
+# the whole collected artifact set, by release.yml's publish job — not
+# here. Attestation needs `id-token: write` / `attestations: write`, and
+# this workflow is called by verify.yml on every push; requesting those
+# permissions unconditionally at this level would make every ordinary
+# verify run fail validation against a repo/org policy that doesn't grant
+# them, even when no attestation is actually produced.
 name: build
 
 on:
@@ -13,25 +19,14 @@ on:
         required: true
         type: choice
         options: [linux-amd64, linux-arm64, darwin-arm64, darwin-amd64]
-      attest:
-        description: Generate provenance attestation
-        required: false
-        type: boolean
-        default: false
   workflow_call:
     inputs:
       platform:
         required: true
         type: string
-      attest:
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
-  id-token: write
-  attestations: write
 
 jobs:
   build:
@@ -70,9 +65,3 @@ jobs:
           name: postgres-runtime-${{ inputs.platform }}
           path: work/out/
           if-no-files-found: error
-
-      - name: Attest build provenance
-        if: ${{ inputs.attest }}
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: work/out/*.tar.zst
