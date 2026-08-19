@@ -95,7 +95,34 @@ an extension is a packaging change, not a PostgreSQL version change).
 Validated locally end-to-end (build, prune's existing extension checks,
 linkage verification, full smoke suite including a dedicated BM25 ranking
 + index-usage test, backup/restore round-trip, and post-relocation
-re-verification) before pushing; not yet exercised on CI.
+re-verification) before pushing.
+
+That local validation had a real gap, and CI caught it: all three
+completed platforms (`linux-amd64`, `linux-arm64`, `darwin-arm64`) failed
+identically at `prune-stage.sh`: `required extension control file
+missing: share/extension/pg_textsearch.control`, moments after
+`scripts/build-third-party.sh` had logged a successful install. Root
+cause: `build-third-party.sh` built pg_textsearch against the *staged*
+`pg_config` (i.e. running from inside `work/stage/...`, not its
+originally-configured `--prefix`), so PostgreSQL's own relocatable-install
+path resolution made `pg_config --pkglibdir`/`--sharedir` report the
+*already-fully-resolved on-disk staged path*, not the bare configured
+prefix. The script then applied `DESTDIR=${STAGE_DIR}` **on top of that
+already-absolute path**, silently doubling it into a nested directory
+nothing ever reads (`${STAGE_DIR}/home/user/.../work/stage/opt/...`) —
+`make install` exits 0 either way, so nothing caught it at build time.
+Locally this went unnoticed because `prune-stage.sh` found *pre-existing,
+correctly-placed files left over from an earlier manual `make install`
+(without DESTDIR)* I'd run directly against the real stage tree for
+functional validation, and never fully cleaned up — a false positive from
+contaminated local state, not a passing test of the actual pipeline code.
+Fixed by dropping `DESTDIR` from the third-party install entirely (letting
+PGXS write straight to the paths the staged `pg_config` already resolves
+correctly) and adding an explicit post-install existence check so a
+future regression of this class fails inside `build-third-party.sh`
+itself with a clear message, not three steps later inside `prune-stage.sh`.
+Re-validated from a genuinely clean `work/stage` (no leftover files from
+manual testing) before re-pushing.
 
 ## Milestones (plan §22)
 

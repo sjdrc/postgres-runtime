@@ -56,6 +56,15 @@ the ref currently resolves to."
 
   log "building ${name} against ${pg_config}"
   make -C "${dir}" -j"${jobs}" PG_CONFIG="${pg_config}" >/dev/null
-  make -C "${dir}" install PG_CONFIG="${pg_config}" DESTDIR="${STAGE_DIR}" >/dev/null
+  # No DESTDIR here: this pg_config is already running from inside the
+  # staged tree (not its originally-configured --prefix), so PostgreSQL's
+  # own relocatable-install path resolution makes it report --pkglibdir /
+  # --sharedir as the fully resolved on-disk staged path already —
+  # applying DESTDIR on top would double it into a nonsense nested path
+  # that install-stage.sh's staged extension check would never find.
+  make -C "${dir}" install PG_CONFIG="${pg_config}" >/dev/null
+  installed_lib="$("${pg_config}" --pkglibdir)/${name}"
+  ls "${installed_lib}".* >/dev/null 2>&1 \
+    || die "${name} claimed to install but no ${installed_lib}.* found"
   log "${name} installed into stage"
 done <<<"${names}"
