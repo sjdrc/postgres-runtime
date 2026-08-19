@@ -119,6 +119,12 @@ not here (plan §16, §22 milestone 5).
 - All supplied contrib modules are built and packaged; the required set
   (`pg_trgm`, `pg_stat_statements`, `ltree`) plus `unaccent` is
   smoke-tested explicitly.
+- **One third-party extension** is included under the reviewed policy in
+  plan §19: [`pg_textsearch`](https://github.com/timescale/pg_textsearch)
+  (BM25 ranked full-text search, permissive PostgreSQL-License, pinned to
+  an exact commit). Provenance and license terms live in `versions.yaml`'s
+  `third_party` section; `scripts/build-third-party.sh` fetches and
+  verifies it, failing closed if the pinned commit ever doesn't match.
 - The Linux ABI baseline is the glibc of the pinned CI builder
   (ubuntu-22.04). Bundled non-glibc libraries are copied into `lib/`;
   anything else outside the allowlist fails the build.

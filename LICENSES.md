@@ -34,6 +34,17 @@ This covers the server, client tools, and all packaged contrib extensions
 rest of the supplied contrib set), as well as the compiled-in IANA timezone
 data (public domain).
 
+## Third-party extensions
+
+Extensions not supplied by PostgreSQL itself, added under the reviewed
+policy in plan §19 (source provenance, pinned commit, license review —
+see `versions.yaml`'s `third_party` section, verified at build time by
+`scripts/build-third-party.sh`):
+
+| Extension | Source | License | Notes |
+| --- | --- | --- | --- |
+| `pg_textsearch` | [timescale/pg_textsearch](https://github.com/timescale/pg_textsearch), pinned to tag `v1.4.0` | [PostgreSQL License](https://github.com/timescale/pg_textsearch/blob/main/LICENSE) (permissive) | BM25 ranked full-text search. Copyright © 2025-2026 Timescale, Inc. d/b/a Tiger Data. |
+
 ## Bundled shared libraries
 
 The Linux artifacts bundle these non-system libraries in `lib/`

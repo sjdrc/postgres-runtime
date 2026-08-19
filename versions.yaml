@@ -17,15 +17,34 @@ postgres:
 runtime:
   # Bump when packaging or build flags change without changing PostgreSQL
   # itself. Runtime version is "<postgres-version>+runtime.<revision>".
-  revision: 1
+  revision: 2
 
 extensions:
   required:
     - pg_trgm
     - pg_stat_statements
     - ltree
+    - pg_textsearch
   optional:
     - unaccent
+
+# Third-party extensions (plan §19). Adding one here is a standing audit
+# and update obligation, not a one-line config change — each entry needs
+# reviewed source provenance, a pinned commit (verified at build time by
+# scripts/build-third-party.sh, which fails closed on any mismatch), and a
+# recorded license review. Extensions listed here still go through the
+# same required/optional smoke- and relocation-testing as PostgreSQL's own
+# supplied contrib modules (see the `extensions` key above).
+third_party:
+  pg_textsearch:
+    # BM25 ranked full-text search: github.com/timescale/pg_textsearch.
+    # Reviewed 2026-08-14: permissive license (same as PostgreSQL itself);
+    # pure C, builds via PGXS with no dependencies beyond PostgreSQL's own
+    # headers; supports PostgreSQL 17 and 18.
+    repo: "https://github.com/timescale/pg_textsearch.git"
+    ref: "v1.4.0"
+    commit: "7a932505b537d50ad8d2d068a053cd1dd7b646ea"
+    license: "PostgreSQL"
 
 # Platforms CI builds and relocation-tests natively. A platform must never
 # be published from a cross-compiled, untested build.

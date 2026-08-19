@@ -1,6 +1,6 @@
 # Implementation status
 
-Concise status against the repository plan. Last updated: 2026-08-14.
+Concise status against the repository plan. Last updated: 2026-08-19.
 
 ## Summary
 
@@ -66,8 +66,36 @@ have no `LC_ID_DYLIB` to set). `darwin-amd64` never got a runner allocated befor
 separate: `build.yml` targeted the `macos-13` runner label, which was
 fully retired in December 2025. Fixed by switching to `macos-15-intel`,
 the current GitHub-hosted x86_64 macOS label (itself scheduled for
-retirement in Fall 2027, when GitHub drops Intel macOS support). Still
-untested against the libpq fix as of this update.
+retirement in Fall 2027, when GitHub drops Intel macOS support).
+
+With both fixes in, all four platforms went fully green on
+`verify.yml` (commit `a39f845`): lint, build, full smoke suite, and
+relocation test, each on its native runner. `postgres-18.6-runtime.1`
+was then tagged and `release.yml` published it as a real GitHub Release
+with all four archives, checksums, manifests, SBOMs, and a provenance
+attestation.
+
+**pg_textsearch (third-party extension, plan §19).** Added BM25 ranked
+full-text search via [timescale/pg_textsearch](https://github.com/timescale/pg_textsearch)
+v1.4.0, pinned to its exact commit. License reviewed: PostgreSQL License
+(permissive). A second third-party extension, ParadeDB's `pg_search`, was
+evaluated and deliberately **not** added — it's AGPL-3.0 with no
+commercial license terms in the public repo (AGPL's network-use clause
+could obligate the whole main application to open its source if ever
+network-exposed) and is Rust/pgrx-based, a much heavier build toolchain
+than anything else in this repo. `pg_textsearch` by contrast is pure C,
+builds via plain PGXS against this repo's own staged PostgreSQL with zero
+external dependencies (confirmed: linkage is libc-only), and required no
+changes to the Linux/macOS relinking scripts — the existing generic
+per-file loops picked it up automatically. `scripts/build-third-party.sh`
+clones the pinned ref and fails closed if the resulting commit doesn't
+match the pinned SHA, mirroring the source-tarball SHA-256 verification
+already used for PostgreSQL itself. Bumped `runtime.revision` to 2 (adding
+an extension is a packaging change, not a PostgreSQL version change).
+Validated locally end-to-end (build, prune's existing extension checks,
+linkage verification, full smoke suite including a dedicated BM25 ranking
++ index-usage test, backup/restore round-trip, and post-relocation
+re-verification) before pushing; not yet exercised on CI.
 
 ## Milestones (plan §22)
 
@@ -75,8 +103,8 @@ untested against the libpq fix as of this update.
 | --- | --- | --- |
 | 1 — one-platform proof | **Done (linux-amd64)** | Executed in a clean Linux container: fetch + pinned-SHA verify, build, stage, prune (23 MB tree, 6.1 MB archive), initdb/start/connect/stop via Unix socket only, relocation, manifest. The plan suggested darwin-arm64 first; this environment is linux-amd64, so that became the proof platform. |
 | 2 — feature proof | **Done** | `tests/sql/`: FTS+GIN, pg_trgm (similarity + indexed lookup), JSONB containment + GIN, recursive CTE (incl. cyclic), COPY both directions, FOR UPDATE SKIP LOCKED, session + xact advisory locks, LISTEN/NOTIFY (cross-session, asserted on delivery), pg_stat_statements (preloaded, stats asserted), pg_dump/pg_restore round-trip with data comparison. Multi-session contention is driven deterministically via dblink. |
-| 3 — full platform matrix | **In CI, unconfirmed green** | linux-amd64 proven locally. All four platforms (`linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64`) now build+test natively on every `verify.yml` run — awaiting a fully green run across the matrix. Relocatable private-library handling + allowlisting implemented and verified on amd64; the darwin Homebrew-prefix detection was fixed before darwin-amd64 could actually exercise it. |
-| 4 — release supply chain | **Implemented, unexercised** | Tag-driven `release.yml` (build matrix → `verify-release-set.sh` gate → publish), per-archive SHA-256, manifest schema + validation, CycloneDX SBOM, provenance attestation via `actions/attest-build-provenance`, weekly `dependency-watch.yml` (opens an issue; never auto-releases). No tag has been pushed yet, so no GitHub Release exists — needs a first tagged release to exercise and to make downloadable assets available. |
+| 3 — full platform matrix | **Done** | All four platforms (`linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64`) build+test natively on every `verify.yml` run and have gone fully green on real CI runners. Relocatable private-library handling + allowlisting verified on Linux and macOS both. |
+| 4 — release supply chain | **Done (exercised once)** | Tag-driven `release.yml` (build matrix → `verify-release-set.sh` gate → publish), per-archive SHA-256, manifest schema + validation, CycloneDX SBOM, provenance attestation via `actions/attest-build-provenance`, weekly `dependency-watch.yml` (opens an issue; never auto-releases). `postgres-18.6-runtime.1` is published with all four platform archives. `postgres-18.6-runtime.2` (adding pg_textsearch) is pending a tag. |
 | 5 — main-app consumption | **Out of scope here** | Belongs to the main Go repo (plan §22). The integration contract is documented in README; `runtime-manifest.json` ships inside every archive. |
 
 ## Definition of Done deltas (plan §24)
@@ -86,12 +114,14 @@ tested at two arbitrary paths with a moved tree against the same cluster;
 server runs Unix-socket-only with no TCP listener; no system PostgreSQL or
 network used by the packaged runtime).
 
+Verified on CI across all four platforms: items 24/25 (linkage), 28
+(provenance — produced and attached on the `postgres-18.6-runtime.1`
+release).
+
 Open items:
 
-- **24/25 (linkage on all platforms):** Linux amd64 verified; arm64 and
-  macOS pending first CI runs (scripts + allowlists in place).
-- **28 (provenance):** wired in workflows; produced on first release.
-- **30 (patch-release watcher):** implemented; fires on schedule.
+- **30 (patch-release watcher):** implemented; fires on schedule, not yet
+  observed firing for real (no upstream patch release since it was added).
 - **31/32 (major upgrades, embedded-postgres wiring):** documented
   contract; owned by the main application.
 
@@ -115,9 +145,9 @@ Open items:
 
 ## Next steps
 
-1. Confirm `verify.yml` goes fully green across all four platforms; fix
-   any macOS-specific fallout in the darwin link scripts (written but,
-   as of this update, not yet confirmed passing on a real Mac runner).
-2. Tag `postgres-18.6-runtime.1` to exercise the release gate, provenance,
-   and publishing — this is what actually produces downloadable assets.
-3. Consume the release from the main application (milestone 5, other repo).
+1. Tag `postgres-18.6-runtime.2` to publish the pg_textsearch addition as
+   a real release (mirrors how `postgres-18.6-runtime.1` was published).
+2. Consume a release from the main application (milestone 5, other repo).
+3. If a future third-party extension is ever proposed, reuse the
+   `pg_textsearch` review as the template: license first, build-toolchain
+   weight second, only then implementation.

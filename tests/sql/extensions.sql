@@ -2,7 +2,9 @@
 -- the extensions created here. dblink is installed purely as test
 -- infrastructure for the multi-session tests (skip-locked, advisory-lock,
 -- listen-notify); it ships in the runtime because all supplied contrib
--- modules are packaged.
+-- modules are packaged. pg_textsearch is the one third-party extension
+-- (plan §19); it requires shared_preload_libraries, set server-wide by
+-- scripts/smoke-test.sh.
 \set ON_ERROR_STOP on
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -10,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS ltree;
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS dblink;
+CREATE EXTENSION IF NOT EXISTS pg_textsearch;
 
 -- ltree: functional check with a GiST index (path containment).
 CREATE TABLE paths (p ltree);

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Generate a minimal CycloneDX SBOM for the runtime artifact: the pinned
-# PostgreSQL source plus every bundled (non-system) shared library.
-# Deliberately small and dependency-free (jq only).
+# PostgreSQL source, every bundled (non-system) shared library, and every
+# third-party extension (plan §19). Deliberately small and
+# dependency-free (jq only).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
@@ -36,12 +37,29 @@ bundled_components="$(
   done < <(read_options_file "${REPO_ROOT}/config/bundled-libs.${os}") | jq -s .
 )"
 
+third_party_components="$(
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] || continue
+    jq -n \
+      --arg name "${name}" \
+      --arg repo "$(ver_get "third_party.${name}.repo")" \
+      --arg ref "$(ver_get "third_party.${name}.ref")" \
+      --arg commit "$(ver_get "third_party.${name}.commit")" \
+      --arg lic "$(ver_get "third_party.${name}.license")" \
+      '{type: "library", name: $name, version: $ref,
+        purl: ("pkg:generic/" + $name + "@" + $ref + "?vcs_url=" + $repo + "@" + $commit),
+        externalReferences: [{type: "vcs", url: $repo}],
+        licenses: [{license: {name: $lic}}]}'
+  done < <(third_party_names) | jq -s .
+)"
+
 out="${OUT_DIR}/$(artifact_name).sbom.cdx.json"
 jq -n \
   --arg rv "$(runtime_version)" \
   --arg pg "$(pg_version)" \
   --arg srcsha "$(ver_get postgres.source.sha256)" \
   --argjson bundled "${bundled_components}" \
+  --argjson third_party "${third_party_components}" \
   '{
     bomFormat: "CycloneDX",
     specVersion: "1.5",
@@ -52,6 +70,6 @@ jq -n \
        purl: ("pkg:generic/postgresql@" + $pg),
        hashes: [{alg: "SHA-256", content: $srcsha}],
        licenses: [{license: {name: "PostgreSQL"}}]}
-    ] + $bundled)
+    ] + $bundled + $third_party)
   }' > "${out}"
 log "wrote ${out}"

@@ -24,10 +24,14 @@ follows from that:
   inspected; dependencies must be runtime-relative or on a reviewed
   per-platform system allowlist (`config/dependency-allowlist.*`). A newly
   observed dependency blocks release.
-- **No third-party extensions.** Only PostgreSQL-supplied contrib modules
-  are packaged. Adding a third-party native extension requires the full
-  checklist in the repo plan (§19): provenance, pin, license review,
-  dependency audit, relocation + smoke tests, and update ownership.
+- **Third-party extensions are the exception, not the default.** Only
+  PostgreSQL-supplied contrib modules are packaged by default. Any
+  third-party native extension must clear the full checklist in the repo
+  plan (§19): provenance, a pinned commit (verified at build time, fail
+  closed on mismatch), license review, dependency audit, relocation +
+  smoke tests, and update ownership — recorded in `versions.yaml`'s
+  `third_party` section. One extension currently meets this bar:
+  `pg_textsearch` (see `LICENSES.md`).
 - **File permissions.** The packaged tree contains no world-writable
   executable or library directories (archives are normalized to uid/gid 0).
 

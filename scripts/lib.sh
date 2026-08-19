@@ -45,6 +45,12 @@ ver_list() {
   yaml_flat | awk -v p="$1[]=" 'index($0, p) == 1 { print substr($0, length(p) + 1) }'
 }
 
+# third_party_names — print the name of every extension declared under
+# versions.yaml's third_party section, one per line (empty if none).
+third_party_names() {
+  yaml_flat | awk -F= '$1 ~ /^third_party\.[^.]+\.repo$/ { n = split($1, a, "."); print a[2] }'
+}
+
 pg_version() { ver_get postgres.version; }
 runtime_revision() { ver_get runtime.revision; }
 runtime_version() { printf '%s+runtime.%s\n' "$(pg_version)" "$(runtime_revision)"; }

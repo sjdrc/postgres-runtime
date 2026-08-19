@@ -12,16 +12,16 @@ else
 LINK_OS := linux
 endif
 
-.PHONY: all dist fetch verify-source configure build stage prune \
+.PHONY: all dist fetch verify-source configure build stage third-party prune \
 	rewrite-links verify-links manifest package finalize sbom \
 	smoke relocation lint clean distclean
 
 all: dist
 
-# Full pipeline: fetch -> verify -> build -> stage -> prune -> relink ->
-# verify links -> manifest -> package -> relocation-test the artifact ->
-# final manifest + SBOM.
-dist: fetch verify-source configure build stage prune rewrite-links \
+# Full pipeline: fetch -> verify -> build -> stage -> third-party ->
+# prune -> relink -> verify links -> manifest -> package ->
+# relocation-test the artifact -> final manifest + SBOM.
+dist: fetch verify-source configure build stage third-party prune rewrite-links \
 	verify-links manifest package relocation finalize sbom
 	@echo "dist complete: work/out/"
 	@ls -l work/out/
@@ -40,6 +40,9 @@ build:
 
 stage:
 	$(S)/install-stage.sh
+
+third-party:
+	$(S)/build-third-party.sh
 
 prune:
 	$(S)/prune-stage.sh

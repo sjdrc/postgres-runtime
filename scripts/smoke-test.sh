@@ -68,9 +68,9 @@ psql_run() { # psql_run <db> <args...>
 }
 
 start_server() {
-  log "starting postgres (unix socket only, pg_stat_statements preloaded)"
+  log "starting postgres (unix socket only, pg_stat_statements+pg_textsearch preloaded)"
   run "${bin}/pg_ctl" -D "${pgdata}" -l "${logfile}" -w -t 60 \
-    -o "-c listen_addresses='' -c unix_socket_directories='${sock}' -c shared_preload_libraries='pg_stat_statements'" \
+    -o "-c listen_addresses='' -c unix_socket_directories='${sock}' -c shared_preload_libraries='pg_stat_statements,pg_textsearch'" \
     start >/dev/null
   server_running=yes
 }
@@ -101,7 +101,7 @@ if [[ "${phase}" == full ]]; then
 
   # Order matters: extensions.sql first (creates required extensions and
   # the dblink test harness used by the multi-session tests).
-  for f in extensions core jsonb fulltext trigram recursive-cte \
+  for f in extensions core jsonb fulltext trigram pg-textsearch recursive-cte \
     skip-locked advisory-lock pg-stat-statements; do
     log "sql test: ${f}.sql"
     psql_run smoke -q -v conninfo="$(conninfo_for smoke)" \
@@ -134,6 +134,7 @@ if [[ "${phase}" == full ]]; then
     'SELECT count(*) FROM events'
     'SELECT count(*) FROM names'
     'SELECT count(*) FROM paths'
+    'SELECT count(*) FROM bm25_docs'
     'SELECT string_agg(extname, chr(44) ORDER BY extname) FROM pg_extension'
   )
   for q in "${checks[@]}"; do

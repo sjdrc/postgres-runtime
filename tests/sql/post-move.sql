@@ -43,6 +43,21 @@ BEGIN
 END
 $$;
 
+-- pg_textsearch (third-party): the BM25 index's handler functions
+-- resolve correctly from the moved tree and still rank as expected. The
+-- index data itself lives in PGDATA (never moved) — this specifically
+-- proves the preloaded shared library still loads and links up.
+DO $$
+DECLARE
+  best_id bigint;
+BEGIN
+  SELECT id INTO best_id FROM bm25_docs ORDER BY content <@> 'database system' LIMIT 1;
+  IF best_id <> 1 THEN
+    RAISE EXCEPTION 'pg_textsearch BM25 ranking not functional after move (got id %)', best_id;
+  END IF;
+END
+$$;
+
 -- JSONB and new writes still work.
 DO $$
 BEGIN

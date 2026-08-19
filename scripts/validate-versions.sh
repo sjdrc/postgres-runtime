@@ -28,6 +28,26 @@ rev="$(runtime_revision)"
 req_count="$(ver_list extensions.required | wc -l | tr -d ' ')"
 [[ "${req_count}" -ge 1 ]] || die "extensions.required must not be empty"
 
+# Third-party extensions (plan §19): every entry needs full, well-formed
+# provenance — a repo URL, a ref, a 40-char pinned commit SHA, and a
+# recorded license — and must also be declared required/optional so it
+# actually gets smoke-tested like everything else.
+while IFS= read -r name; do
+  [[ -n "${name}" ]] || continue
+  repo="$(ver_get "third_party.${name}.repo")"
+  [[ "${repo}" == https://github.com/*.git ]] \
+    || die "third_party.${name}.repo must be an https://github.com/OWNER/REPO.git URL, got: ${repo}"
+  ver_get "third_party.${name}.ref" >/dev/null
+  commit="$(ver_get "third_party.${name}.commit")"
+  [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] \
+    || die "third_party.${name}.commit must be a 40-char git commit SHA, got: ${commit}"
+  ver_get "third_party.${name}.license" >/dev/null
+  if ! ver_list extensions.required | grep -qx "${name}" \
+    && ! ver_list extensions.optional | grep -qx "${name}"; then
+    die "third_party.${name} is declared but not listed in extensions.required or extensions.optional"
+  fi
+done < <(third_party_names)
+
 plat_count=0
 while IFS= read -r p; do
   [[ "${p}" =~ ^(linux|darwin)-(amd64|arm64)$ ]] || die "invalid platform entry: ${p}"
